@@ -13,9 +13,6 @@ import gsw
 from sklearn.decomposition import PCA
 
 
-# open mat file f75 
-f75 = "/Users/annek/Library/CloudStorage/OneDrive-SharedLibraries-NIOZ/PhD Anneke Vries - General/Data/Moorings/20190612_ADCP_GF10/GF18_/GF18_/ADCP75.mat"
-f300 = "/Users/annek/Library/CloudStorage/OneDrive-SharedLibraries-NIOZ/PhD Anneke Vries - General/Data/Moorings/20190612_ADCP_GF10/ADCP300.mat"
 
 # ======= 
 # Plotting
