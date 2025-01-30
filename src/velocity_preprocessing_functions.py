@@ -1,11 +1,9 @@
 # %%
-from paths import *
 import scipy.io as sio
 import numpy as np
 import datetime
 import xarray as xr
 import pandas as pd
-import matplotlib.pyplot as plt
 import math as m
 from functions import *
 from pytides2.tide import Tide
@@ -23,7 +21,7 @@ def remove_spines(ax):
         ax.spines[side].set_visible(False)
 
 
-def rotate_velocities_with_PCA(ds_velo):
+def rotate_velocities_with_PCA(ds_velo, verbose=False):
     """
         rotate velocities using PCA, takes in a dataset with SerEmmpersec and SerNmmpersec\
         returns a dataset with rotated velocities
@@ -49,41 +47,43 @@ def rotate_velocities_with_PCA(ds_velo):
     X_pca = np.full(np.shape(X_array), np.nan)
     X_pca[arg_no_nans] = X_trans
 
-    # make a 2d histogram of the data
-    fig, axes = plt.subplots(1, 2, sharex=True, sharey=True)
-    bins = np.arange(-500, 500, 10)
-    axes[0].hist2d(X[:, 0], X[:, 1], bins=bins, cmap="Blues")
-    axes[1].hist2d(X_pca[:, 1], X_pca[:, 0], bins=bins, cmap="Blues")
-    # use same aspect ratio for both plots
-    axes[0].set_aspect("equal", "box")
-    axes[1].set_aspect("equal", "box")
-    axes[0].set(xlabel="E", ylabel="N")
-    axes[1].set(xlabel="PCA2, Across", ylabel="PCA1, Along")
-    for i, (comp, var) in enumerate(zip(components, pca.explained_variance_)):
-        comp = comp * var  # scale component by its variance explanation power
-        axes[0].plot(
-            [0, comp[0] / 10],
-            [0, comp[1] / 10],
-            label=f"Component {i}",
-            linewidth=1,
-            color=f"C{i + 2}",
+    if verbose:
+
+        # make a 2d histogram of the data
+        fig, axes = plt.subplots(1, 2, sharex=True, sharey=True)
+        bins = np.arange(-500, 500, 10)
+        axes[0].hist2d(X[:, 0], X[:, 1], bins=bins, cmap="Blues")
+        axes[1].hist2d(X_pca[:, 1], X_pca[:, 0], bins=bins, cmap="Blues")
+        # use same aspect ratio for both plots
+        axes[0].set_aspect("equal", "box")
+        axes[1].set_aspect("equal", "box")
+        axes[0].set(xlabel="E", ylabel="N")
+        axes[1].set(xlabel="PCA2, Across", ylabel="PCA1, Along")
+        for i, (comp, var) in enumerate(zip(components, pca.explained_variance_)):
+            comp = comp * var  # scale component by its variance explanation power
+            axes[0].plot(
+                [0, comp[0] / 10],
+                [0, comp[1] / 10],
+                label=f"Component {i}",
+                linewidth=1,
+                color=f"C{i + 2}",
+            )
+        axes[0].legend(loc="lower left")
+        axes[0].set_title("Original Data")
+        axes[1].set_title("PCA Transformed Data")
+
+        print(f"Components {components}")
+        print(f"Explained Variance {pca.explained_variance_}")
+        print(
+            f"Degrees of components {m.degrees(np.arctan2(components[0,1], components[0,0])):.0f}, {m.degrees(np.arctan2(components[1,1], components[1,0])):.0f}"
         )
-    axes[0].legend(loc="lower left")
-    axes[0].set_title("Original Data")
-    axes[1].set_title("PCA Transformed Data")
+        # print mean of X_pca and of X
+        print(f"Mean of X_pca {np.round(np.nanmean(X_pca, axis=0),1)}")
+        print(f"Mean of X {np.round(np.mean(X, axis=0),1)}")
 
-    print(f"Components {components}")
-    print(f"Explained Variance {pca.explained_variance_}")
-    print(
-        f"Degrees of components {m.degrees(np.arctan2(components[0,1], components[0,0])):.0f}, {m.degrees(np.arctan2(components[1,1], components[1,0])):.0f}"
-    )
-    # print mean of X_pca and of X
-    print(f"Mean of X_pca {np.round(np.nanmean(X_pca, axis=0),1)}")
-    print(f"Mean of X {np.round(np.mean(X, axis=0),1)}")
-
-    # calculate magnitude (X[:,0]**2 + X[:,1]**2)**0.5 and print
-    print(f"Mean of Magnitude of X {np.mean((X[:,0]**2 + X[:,1]**2)**0.5):.2f} mm/s")
-    print(f"Mean of Magnitude of X_pca {np.nanmean((X_pca[:,0]**2 + X_pca[:,1]**2)**0.5):.2f} mm/s")
+        # calculate magnitude (X[:,0]**2 + X[:,1]**2)**0.5 and print
+        print(f"Mean of Magnitude of X {np.mean((X[:,0]**2 + X[:,1]**2)**0.5):.2f} mm/s")
+        print(f"Mean of Magnitude of X_pca {np.nanmean((X_pca[:,0]**2 + X_pca[:,1]**2)**0.5):.2f} mm/s")
 
     speed_along = X_pca[:, 0]
     speed_across = X_pca[:, 1]
@@ -91,10 +91,38 @@ def rotate_velocities_with_PCA(ds_velo):
     return speed_along, speed_across, pca, components
 
 
+# calculate tides 
+def calculate_tidal_prediction(data_array):
+    # first remove mean per layer than average over time
+    mean_velocity_water_column = (data_array - data_array.mean(dim="time")).mean(dim="z")
+    mean_velocity_water_column -= mean_velocity_water_column.mean()
+
+    # For a quicker decomposition, we'll only use hourly readings rather than 6-minutely readings.
+    v = mean_velocity_water_column.to_numpy().astype("float")
+    # fill nan with 0
+    v[np.isnan(v)] = 0
+    t = mean_velocity_water_column.time
+
+    t_hours = []
+    for i in range(len(t)):
+        t_hours.append(np_to_datetime(t[i]))
+
+    # Fit the tidal data to the harmonic model using Pytides
+    my_tide = Tide.decompose(v, t_hours, n_period=10)  # increase n_period to filter out long tidal periods
+    my_prediction = my_tide.at(t_hours)
+
+    if verbose:
+        print(f"Std of original data:  {np.std(v):.2f}")
+        print(f"Std of prediction: {np.std(my_prediction):.2f}")
+
+    return my_prediction, mean_velocity_water_column, my_tide
+
+
 def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
     """
     Open and process mat file from ADCP, based on GF10 2018-2019, for both 75 and 300 kHz
     fname = path to mat file (str)
+    verbose = print out additional information, such as figures or print statements
     If other ADCP is used, check if the nbins to be removed
     Returns: ds_velo, constituent, df_const, my_tide_along, my_tide_across, my_prediction_along, my_prediction_across, mean_velocity_water_column_along, mean_velocity_water_column_across, ds_velo_no_outlier_removal
     """
@@ -104,11 +132,11 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
         fkeys.append(i)
     ns = len(np.squeeze(mat_file["SerDay"]))  # number of samples
     nb = len(np.squeeze(mat_file["SerBins"]))  # number of bins
-    print("Number of samples: ", ns)
-    print("Number of bins: ", nb)
-    print(f"Bin size: {int(mat_file['RDIBinSize'])} m")
+    if verbose:
+        print("Number of samples: ", ns)
+        print("Number of bins: ", nb)
+        print(f"Bin size: {int(mat_file['RDIBinSize'])} m")
 
-    # time vector
     time = []
     for ii in np.arange(ns, dtype="int"):
         time.append(
@@ -122,17 +150,17 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
             )
         )
     n_obs_day = 86400 / (time[1] - time[0]).seconds
-    print(f"Number of observations per day: {n_obs_day}")
-    print("first ping: ", time[0])
-    print("last ping: ", time[-1])
-    print(f"sampling interval: {np.mean(np.diff(time)).seconds/60:.2f} minutes")
 
     # construct vertical axis
     mdepth = (gsw.z_from_p(p=np.mean(mat_file["AnDepthmm"][500:-500].squeeze()) * 1e-3, lat=64) * -1).round(
         0
     )  # mean of pressure sensor record
-    # alternatively, you can use water depth (if known) and mooring sketch
-    print(f"Mounting depth: {int(mdepth)}")
+    if verbose:
+        print(f"Number of observations per day: {n_obs_day}")
+        print("first ping: ", time[0])
+        print("last ping: ", time[-1])
+        print(f"sampling interval: {np.mean(np.diff(time)).seconds/60:.2f} minutes")
+        print(f"Mounting depth: {int(mdepth)}")
     zax = (
         mdepth
         - mat_file["RDIBin1Mid"].squeeze()
@@ -204,7 +232,8 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
 
     # remove all values where zax < 0
     ds_velo = ds_velo.where(ds_velo.z > 0, drop=True)
-    print(f"Number of bins after removing above water surface: {nb}")
+    if verbose:
+        print(f"Number of bins after removing above water surface: {nb}")
 
     # drop highest bin, depending on which adcp remove x number of bins
     if mdepth > 500:
@@ -215,17 +244,16 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
         n_bad_bins = 2
     ds_velo = ds_velo.isel(z=slice(0, -n_bad_bins))
 
-    print(f"Removing approx to 10 percent, or upper bins based on inspections: {n_bad_bins} bins")
 
     # update number of bins and time
     nb = len(ds_velo.z)
     ns = len(ds_velo.time)
     zax = ds_velo.z
     time = ds_velo.time
-
-    print("Final number of bins: ", nb)
-    print(f"Shallowest bin:  {float(np.min(zax[0])):.1f} m")
-
+    if verbose:
+        print(f"Removing approx to 10 percent, or upper bins based on inspections: {n_bad_bins} bins")
+        print("Final number of bins: ", nb)
+        print(f"Shallowest bin:  {float(np.min(zax[0])):.1f} m")
     ds_velo_no_outlier_removal = ds_velo.copy(deep=True)
 
     # find and remove outliers: where velocity is more than 3 standard deviations from the rolling median
@@ -241,17 +269,15 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
         other=np.nan,
     )
 
-    # flagging orignal data
+    # flagging orignal data   and  make all values in flag 0 where ds_velo.Magmmpersec is nan
     ds_velo_no_outlier_removal["flag"] = 0
-    # make all values in flag 0 where ds_velo.Magmmpersec is nan
     ds_velo_no_outlier_removal["flag"] = ds_velo_no_outlier_removal.flag.where(
         ~np.isnan(ds_velo_no_outlier_removal.SerMagmmpersec), 1
     )
 
-    print("\n Rotating velocities")
-
-    if main_angle:
-        print(f"Using fixed angle {main_angle} to rotate velocities")
+    if main_angle: # is given by user
+        if verbose:
+            print(f"Using fixed angle {main_angle} to rotate velocities")
         # calculate along and across axis and rotte
         vector_along = np.expand_dims([1 * np.cos(m.radians(main_angle)), 1 * np.sin(m.radians(main_angle))], axis=1)
         vector_across = np.expand_dims([1 * np.cos(m.radians(main_angle + 90)), 1 * np.sin(m.radians(main_angle + 90))], axis=1)
@@ -260,9 +286,10 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
         speed_along = v_ori.dot(vector_along)
         speed_across = v_ori.dot(vector_across)
     else:
-        print("Using PCA to rotate velocities")
-        speed_along, speed_across, pca, _ = rotate_velocities_with_PCA(ds_velo)
-    print("\n")
+        if verbose:
+            print("Using PCA to rotate velocities")
+        speed_along, speed_across, pca, _ = rotate_velocities_with_PCA(ds_velo, verbose=verbose)
+
 
     ds_velo["Alongmmpersec"] = xr.DataArray(
         speed_along.transpose().reshape(ns, len(zax)), dims=["time", "z"], attrs={"units": "mm/s"}
@@ -271,39 +298,7 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
         speed_across.transpose().reshape(ns, len(zax)), dims=["time", "z"], attrs={"units": "mm/s"}
     )
 
-    # calculate tides and remove
-
-    print("\n Calculating tides and removing them")
-
-    def calculate_tidal_prediction(data_array):
-        # first remove mean per layer than average over time
-        mean_velocity_water_column = (data_array - data_array.mean(dim="time")).mean(dim="z")
-        mean_velocity_water_column -= mean_velocity_water_column.mean()
-
-        # For a quicker decomposition, we'll only use hourly readings rather than 6-minutely readings.
-        v = mean_velocity_water_column.to_numpy().astype("float")
-        # fill nan with 0
-        v[np.isnan(v)] = 0
-        t = mean_velocity_water_column.time
-
-        t_hours = []
-        for i in range(len(t)):
-            t_hours.append(np_to_datetime(t[i]))
-
-        ##Fit the tidal data to the harmonic model using Pytides
-        my_tide = Tide.decompose(v, t_hours, n_period=10)  # increase n_period to filter out long tidal periods
-        ##Predict the tides using the Pytides model.
-        my_prediction = my_tide.at(t_hours)
-
-        # print stand deviation of orignal data and prediction
-        print(f"Std of original data:  {np.std(v):.2f}")
-        print(f"Std of prediction: {np.std(my_prediction):.2f}")
-
-        return my_prediction, mean_velocity_water_column, my_tide
-
-    print("Along")
     my_prediction_along, mean_velocity_water_column_along, my_tide_along = calculate_tidal_prediction(ds_velo.Alongmmpersec)
-    print("Across")
     my_prediction_across, mean_velocity_water_column_across, my_tide_across = calculate_tidal_prediction(ds_velo.Acrossmmpersec)
 
     constituent = [c.name for c in my_tide_along.model["constituent"]]
@@ -320,9 +315,11 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
     # calculate variance from tide and from original data
     variance_tide = np.var(my_prediction_along)
     variance_original = np.var(mean_velocity_water_column_along)
-    print(f"Variance of original data: {variance_original:.2f}")
-    print(f"Variance of prediction: {variance_tide:.2f}")
-    print(f"Variance of prediction as percentage of original data: {variance_tide/variance_original*100:.2f}%")
+
+    if verbose:
+        print(f"Variance of original data: {variance_original:.2f}")
+        print(f"Variance of prediction: {variance_tide:.2f}")
+        print(f"Variance of prediction as percentage of original data: {variance_tide/variance_original*100:.2f}%")
 
     ds_velo["Along_res"] = ds_velo["Alongmmpersec"] - xr.DataArray(my_prediction_along, dims=["time"])
     ds_velo["Across_res"] = ds_velo["Acrossmmpersec"] - xr.DataArray(my_prediction_across, dims=["time"])
