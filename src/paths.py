@@ -19,3 +19,7 @@ file_monthly_ctd_all_years_all_stations = "../data/processed/monthly_all_years_a
 
 file_processed_niaqornaa_weather_station = "../data/processed/selected_niaqornaa_weatherstation.nc"
 
+
+# BATHYMETRY
+file_bathymetry_along_fjord  = f"{datapath}/raw/Bathymetry GF1_GF19.csv"
+

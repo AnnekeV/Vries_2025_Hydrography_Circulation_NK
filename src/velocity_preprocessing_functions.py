@@ -92,7 +92,7 @@ def rotate_velocities_with_PCA(ds_velo, verbose=False):
 
 
 # calculate tides 
-def calculate_tidal_prediction(data_array):
+def calculate_tidal_prediction(data_array, verbose=False):
     # first remove mean per layer than average over time
     mean_velocity_water_column = (data_array - data_array.mean(dim="time")).mean(dim="z")
     mean_velocity_water_column -= mean_velocity_water_column.mean()
@@ -298,8 +298,8 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
         speed_across.transpose().reshape(ns, len(zax)), dims=["time", "z"], attrs={"units": "mm/s"}
     )
 
-    my_prediction_along, mean_velocity_water_column_along, my_tide_along = calculate_tidal_prediction(ds_velo.Alongmmpersec)
-    my_prediction_across, mean_velocity_water_column_across, my_tide_across = calculate_tidal_prediction(ds_velo.Acrossmmpersec)
+    my_prediction_along, mean_velocity_water_column_along, my_tide_along = calculate_tidal_prediction(ds_velo.Alongmmpersec, verbose=verbose)
+    my_prediction_across, mean_velocity_water_column_across, my_tide_across = calculate_tidal_prediction(ds_velo.Acrossmmpersec, verbose=verbose)
 
     constituent = [c.name for c in my_tide_along.model["constituent"]]
 
