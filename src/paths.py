@@ -15,6 +15,7 @@ f300 = '../data/raw/ADCP300.mat'
 # MONTHLY CTD'S AND MOORING MICROCAT
 file_monthly_CTD = "../data/processed/monthly_18_19_gf10.csv"
 file_mooring_microcat = "../data/processed/mooring_gf10.csv"
+file_monthly_ctd_all_years_all_stations = "../data/processed/monthly_all_years_all_stations.csv"
 
 file_processed_niaqornaa_weather_station = "../data/processed/selected_niaqornaa_weatherstation.nc"
 
