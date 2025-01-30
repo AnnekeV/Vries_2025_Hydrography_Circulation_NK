@@ -1,6 +1,7 @@
 ### **Voorbeeld .gitignore**  
 ```gitignore
 data/*
+outputs/*
 __pycache__/
 *.ipynb_checkpoints
 .DS_Store
