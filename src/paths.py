@@ -3,6 +3,7 @@ from pathlib import Path
 
 path_parent = Path.cwd().parent
 figpath = path_parent.joinpath(Path('outputs'))
+path_outputs = figpath
 datapath = path_parent.joinpath(Path('data'))
 
 
@@ -23,3 +24,9 @@ file_processed_niaqornaa_weather_station = "../data/processed/selected_niaqornaa
 # BATHYMETRY
 file_bathymetry_along_fjord  = f"{datapath}/raw/Bathymetry GF1_GF19.csv"
 
+# TIDAL DATA as determined from the ADCP
+file_slack_tides = "../data/processed/positive_slack_tide_moments.csv"
+
+
+# Diffusion and vertical heat flux
+file_vertical_heat_flux = "../data/processed/VerticalHeatFluxfromdiffusionprofiles.csv"
