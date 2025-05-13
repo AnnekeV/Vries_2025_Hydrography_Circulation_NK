@@ -182,17 +182,23 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
     # make xarray from dictionary
     coordinates = ["time", "zax"]
     data = [
-        "SerEmmpersec",
-        "SerNmmpersec",
-        "SerVmmpersec",
-        "SerErmmpersec",
-        "SerMagmmpersec",
-        "SerDir10thDeg",
-        "SerPG4",
+        "SerEmmpersec",  # eastward velocity in mm/s
+        "SerNmmpersec", # northward velocity in mm/s
+        "SerVmmpersec", # vertical velocity in mm/s (generally bad)
+        "SerErmmpersec", 
+        "SerMagmmpersec", # magnitude of velocity in mm/s
+        "SerDir10thDeg", # direction ???
+        "SerPG4", # Indicator of good data (not perfect)
         "test",
     ]
 
-    data_time = ["AnP100thDeg", "AnR100thDeg", "AnH100thDeg", "AnT100thDeg", "AnDepthmm"]
+    data_time = [
+        "AnP100thDeg", # pitch in 100th of a degree
+        "AnR100thDeg",   # roll in 100th of a degree
+        "AnH100thDeg",  # heading in 100th of a degree
+        "AnT100thDeg",  # temperature in degree celcius * q100
+        "AnDepthmm"    # pressure sensor / instrument depth in mm
+        ]
 
     # check if every value in data is in fkeys, otherwise drop it
     for i in data:
