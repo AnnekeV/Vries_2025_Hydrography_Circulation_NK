@@ -9,7 +9,6 @@ from functions import *
 from pytides2.tide import Tide
 import gsw
 from sklearn.decomposition import PCA
-from paths import f300, f75
 
 # =======
 # Plotting
@@ -128,6 +127,7 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
     """
     mat_file = sio.loadmat(fname)
     fkeys = []
+    attributes = {}
     for i in mat_file.keys():
         fkeys.append(i)
     ns = len(np.squeeze(mat_file["SerDay"]))  # number of samples
@@ -136,6 +136,10 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
         print("Number of samples: ", ns)
         print("Number of bins: ", nb)
         print(f"Bin size: {int(mat_file['RDIBinSize'])} m")
+
+    attributes["bin_size"] = int(mat_file["RDIBinSize"])
+    attributes["number_of_bins"] = nb
+    attributes["number_of_samples"] = ns
 
     time = []
     for ii in np.arange(ns, dtype="int"):
@@ -161,6 +165,14 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
         print("last ping: ", time[-1])
         print(f"sampling interval: {np.mean(np.diff(time)).seconds/60:.2f} minutes")
         print(f"Mounting depth: {int(mdepth)}")
+
+    attributes["mounting_depth"] = int(mdepth)
+    attributes["sampling_interval"] = f"{np.mean(np.diff(time)).seconds / 60:.2f} minutes"
+    attributes["first_ping"] = time[0]
+    attributes["last_ping"] = time[-1]
+    attributes["number_of_observations_per_day"] = n_obs_day
+
+    
     zax = (
         mdepth
         - mat_file["RDIBin1Mid"].squeeze()
@@ -321,6 +333,19 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
         print(f"Variance of prediction: {variance_tide:.2f}")
         print(f"Variance of prediction as percentage of original data: {variance_tide/variance_original*100:.2f}%")
 
+
+    # add attributes to ds_velo and ds_velo_no_outlier_removal
+    ds_velo.attrs = attributes
+    ds_velo_no_outlier_removal.attrs = attributes
+    # for all data_vars that have  mmpersec add attribute units "mm/s"
+    for i in ds_velo.data_vars:
+        if "mmpersec" in i:
+            ds_velo[i].attrs = {"units": "mm/s"}
+    for i in ds_velo_no_outlier_removal.data_vars:
+        if "mmpersec" in i:
+            ds_velo_no_outlier_removal[i].attrs = {"units": "mm/s"}
+
+
     ds_velo["Along_res"] = ds_velo["Alongmmpersec"] - xr.DataArray(my_prediction_along, dims=["time"])
     ds_velo["Across_res"] = ds_velo["Acrossmmpersec"] - xr.DataArray(my_prediction_across, dims=["time"])
     ds_velo.Along_res.attrs = {"units": "mm/s"}
@@ -341,6 +366,8 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
 
 
 if __name__ == "__main__":
+    from paths import f300, f75
+
     (
         ds_velo,
         constituent,

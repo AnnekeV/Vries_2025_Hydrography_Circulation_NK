@@ -1,7 +1,7 @@
 
 from pathlib import Path
 
-path_parent = Path.cwd().parent
+path_parent = Path.cwd().parent.parent
 figpath = path_parent.joinpath(Path('outputs'))
 path_outputs = figpath
 datapath = path_parent.joinpath(Path('data'))
@@ -9,9 +9,11 @@ datapath = path_parent.joinpath(Path('data'))
 
 # Used in the velocity plotting notebook
 
+# get 
+
 # ADCP mooringas at GF10 300 and 75 kHz
-f75 = '../data/raw/ADCP75.mat'
-f300 = '../data/raw/ADCP300.mat'
+f75 = str( datapath /  'raw' / 'ADCP75.mat')
+f300 = str(datapath / 'raw' / 'ADCP300.mat')
 
 # MONTHLY CTD'S AND MOORING MICROCAT
 file_monthly_CTD = "../data/processed/monthly_18_19_gf10.csv"
