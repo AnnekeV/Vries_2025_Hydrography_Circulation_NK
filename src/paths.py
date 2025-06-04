@@ -1,7 +1,7 @@
 
 from pathlib import Path
 
-path_parent = Path.cwd().parent.parent
+path_parent = Path('/Users/annek/Library/CloudStorage/OneDrive-SharedLibraries-NIOZ/PhD Anneke Vries - General/Vries_2025_Hydrography_Circulation_NK')
 figpath = path_parent.joinpath(Path('outputs'))
 path_outputs = figpath
 datapath = path_parent.joinpath(Path('data'))

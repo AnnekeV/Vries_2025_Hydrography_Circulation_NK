@@ -322,7 +322,7 @@ def open_and_proces_mat_adcp(fname, main_angle=None, verbose=False):
     constituent = [c.name for c in my_tide_along.model["constituent"]]
 
     df_const = (
-        pd.DataFrame(my_tide_across.model, index=constituent)
+        pd.DataFrame(my_tide_along.model, index=constituent)
         .drop("constituent", axis=1)
         .sort_values(by="amplitude", ascending=False)
         .rename(columns={"amplitude": "Velocity amplitude [mm/s]", "phase": "Phase [deg]"})
